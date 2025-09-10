@@ -1,10 +1,8 @@
-"use client"
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { ClerkProvider } from '@clerk/nextjs'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useState } from 'react'
+import { QueryProvider } from '@/components/providers/query-provider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -18,15 +16,13 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const [queryClient] = useState(() => new QueryClient())
-
   return (
     <html lang="en">
       <body className={inter.className}>
         <ClerkProvider>
-          <QueryClientProvider client={queryClient}>
+          <QueryProvider>
             {children}
-          </QueryClientProvider>
+          </QueryProvider>
         </ClerkProvider>
       </body>
     </html>
