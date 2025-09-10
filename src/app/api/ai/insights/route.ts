@@ -1,21 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth/auth'
 import { prisma } from '@/lib/prisma'
 import { FinancialAI } from '@/lib/ai/gemini'
+import { currentUser } from '@clerk/nextjs/server'
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session?.user?.id) {
+    const user = await currentUser()
+
+    if (!user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Fetch user's financial data
     const [budgets, expenses] = await Promise.all([
       prisma.budget.findMany({
-        where: { userId: session.user.id },
+        where: { userId: user.id },
         include: {
           expenses: {
             select: { amount: true }
@@ -23,7 +22,7 @@ export async function GET(request: NextRequest) {
         }
       }),
       prisma.expense.findMany({
-        where: { userId: session.user.id },
+        where: { userId: user.id },
         take: 50, // Last 50 expenses
         orderBy: { createdAt: 'desc' },
         include: {

@@ -1,19 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth/auth'
+import { currentUser } from '@clerk/nextjs/server'
 
 export function withAuth<T extends any[]>(
   handler: (userId: string, request: NextRequest, ...args: T) => Promise<NextResponse>
 ) {
   return async (request: NextRequest, ...args: T): Promise<NextResponse> => {
     try {
-      const session = await getServerSession(authOptions)
-      
-      if (!session?.user?.id) {
+      const user = await currentUser()
+      if (!user?.id) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }
-      
-      return await handler(session.user.id, request, ...args)
+
+      return await handler(user.id, request, ...args)
     } catch (error) {
       console.error('Auth wrapper error:', error)
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

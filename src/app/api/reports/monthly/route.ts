@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth/auth'
 import { ReportsService } from '@/lib/services/reports'
+import { currentUser } from '@clerk/nextjs/server'
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session?.user?.id) {
+    const user = await currentUser()
+
+    if (!user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -15,7 +14,7 @@ export async function GET(request: NextRequest) {
     const month = searchParams.get('month') // Format: YYYY-MM
     const date = month ? new Date(month + '-01') : new Date()
 
-    const report = await ReportsService.generateMonthlyReport(session.user.id, date)
+    const report = await ReportsService.generateMonthlyReport(user.id, date)
 
     return NextResponse.json(report)
 

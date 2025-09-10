@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth/auth'
 import { ReportsService } from '@/lib/services/reports'
 import puppeteer from 'puppeteer'
+import { currentUser } from '@clerk/nextjs/server'
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session?.user?.id) {
+    const user = await currentUser()
+
+    if (!user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -20,9 +19,9 @@ export async function POST(request: NextRequest) {
     let reportData
     if (reportType === 'monthly') {
       const date = month ? new Date(month + '-01') : new Date()
-      reportData = await ReportsService.generateMonthlyReport(session.user.id, date)
+      reportData = await ReportsService.generateMonthlyReport(user.id, date)
     } else {
-      reportData = await ReportsService.generateYearlyReport(session.user.id, year)
+      reportData = await ReportsService.generateYearlyReport(user.id, year)
     }
 
     // Generate HTML template

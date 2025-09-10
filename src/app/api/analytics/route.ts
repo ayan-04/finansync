@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth/auth'
 import { prisma } from '@/lib/prisma'
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns'
+import { currentUser } from '@clerk/nextjs/server'
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session?.user?.id) {
+    const user = await currentUser()
+
+    if (!user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -17,19 +16,19 @@ export async function GET(request: NextRequest) {
     const startDate = subMonths(new Date(), months)
 
     // Get monthly spending trends
-    const monthlySpending = await getMonthlySpending(session.user.id, startDate)
+    const monthlySpending = await getMonthlySpending(user.id, startDate)
     
     // Get category breakdown
-    const categoryBreakdown = await getCategoryBreakdown(session.user.id, startDate)
+    const categoryBreakdown = await getCategoryBreakdown(user.id, startDate)
     
     // Get budget vs actual comparison
-    const budgetComparison = await getBudgetComparison(session.user.id)
+    const budgetComparison = await getBudgetComparison(user.id)
     
     // Get daily spending for current month
-    const dailySpending = await getDailySpending(session.user.id)
+    const dailySpending = await getDailySpending(user.id)
     
     // Calculate financial metrics
-    const metrics = await getFinancialMetrics(session.user.id, startDate)
+    const metrics = await getFinancialMetrics(user.id, startDate)
 
     return NextResponse.json({
       monthlySpending,
@@ -63,8 +62,7 @@ async function getMonthlySpending(userId: string, startDate: Date) {
     if (!acc[month]) {
       acc[month] = 0
     }
-    // ✅ Convert Prisma Decimal to number
-    acc[month] += Number(expense.amount)
+    acc[month] += Number(expense.amount) // Convert Prisma Decimal to number
     return acc
   }, {} as Record<string, number>)
 
@@ -104,8 +102,7 @@ async function getCategoryBreakdown(userId: string, startDate: Date) {
 
   return result.map(item => {
     const budget = budgets.find(b => b.id === item.budgetId)
-    // ✅ Convert Prisma Decimal to number
-    const amount = Number(item._sum.amount || 0)
+    const amount = Number(item._sum.amount || 0) // Prisma Decimal to number
     return {
       category: budget?.name || 'Unknown',
       amount: Number(amount.toFixed(2)),
@@ -127,7 +124,6 @@ async function getBudgetComparison(userId: string) {
   })
 
   return budgets.map(budget => {
-    // ✅ Convert Prisma Decimals to numbers
     const budgetAmount = Number(budget.amount)
     const spent = budget.expenses.reduce((sum, expense) => sum + Number(expense.amount), 0)
     const remaining = budgetAmount - spent
@@ -166,8 +162,7 @@ async function getDailySpending(userId: string) {
     if (!acc[day]) {
       acc[day] = 0
     }
-    // ✅ Convert Prisma Decimal to number
-    acc[day] += Number(expense.amount)
+    acc[day] += Number(expense.amount) // Prisma Decimal to number
     return acc
   }, {} as Record<string, number>)
 
@@ -212,7 +207,7 @@ async function getFinancialMetrics(userId: string, startDate: Date) {
     _sum: { amount: true }
   })
 
-  // ✅ Convert all Prisma Decimals to numbers
+  // Prisma Decimal to numbers
   const totalSpentDecimal = totalExpenses._sum.amount || 0
   const totalBudgetDecimal = totalBudgets._sum.amount || 0
   const currentMonthDecimal = currentMonthExpenses._sum.amount || 0
@@ -229,12 +224,13 @@ async function getFinancialMetrics(userId: string, startDate: Date) {
     totalSpent: Number(totalSpent.toFixed(2)),
     totalBudget: Number(totalBudget.toFixed(2)),
     totalTransactions: totalExpenses._count.id,
-    averageTransaction: totalExpenses._count.id > 0 ? 
-      Number((totalSpent / totalExpenses._count.id).toFixed(2)) : 0,
+    averageTransaction:
+      totalExpenses._count.id > 0 ?
+        Number((totalSpent / totalExpenses._count.id).toFixed(2)) : 0,
     currentMonthSpending: Number(currentMonth.toFixed(2)),
     lastMonthSpending: Number(lastMonth.toFixed(2)),
     monthlyChangePercentage: Number(monthlyChange.toFixed(1)),
-    budgetUtilization: totalBudget > 0 ? 
+    budgetUtilization: totalBudget > 0 ?
       Number(((totalSpent / totalBudget) * 100).toFixed(1)) : 0
   }
 }

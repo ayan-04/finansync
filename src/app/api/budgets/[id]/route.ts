@@ -1,28 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth/auth'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
-import { ReportsService } from '@/lib/services/reports' // ✅ Add this import
+import { ReportsService } from '@/lib/services/reports'
+import { currentUser } from '@clerk/nextjs/server'
 
 // GET single budget
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session?.user?.id) {
+    const user = await currentUser()
+    if (!user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id: budgetId } = await params
+    const budgetId = params.id
 
     const budget = await prisma.budget.findFirst({
       where: {
         id: budgetId,
-        userId: session.user.id
+        userId: user.id
       },
       include: {
         expenses: {
@@ -49,7 +47,7 @@ export async function GET(
       0
     )
 
-    const numericAmount = budget.amount.toNumber() // Convert Decimal → number
+    const numericAmount = Number(budget.amount) // Convert Decimal → number
     const percentage = numericAmount > 0 ? (spent / numericAmount) * 100 : 0
 
     const budgetWithStats = {
@@ -71,16 +69,15 @@ export async function GET(
 // UPDATE budget
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session?.user?.id) {
+    const user = await currentUser()
+    if (!user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id: budgetId } = await params
+    const budgetId = params.id
     const { name, amount, icon, color } = await request.json()
 
     if (!name || !amount) {
@@ -101,7 +98,7 @@ export async function PUT(
     const existingBudget = await prisma.budget.findFirst({
       where: {
         id: budgetId,
-        userId: session.user.id
+        userId: user.id
       }
     })
 
@@ -114,7 +111,7 @@ export async function PUT(
       const nameConflict = await prisma.budget.findFirst({
         where: {
           name,
-          userId: session.user.id,
+          userId: user.id,
           id: { not: budgetId }
         }
       })
@@ -131,7 +128,7 @@ export async function PUT(
     const budget = await prisma.budget.update({
       where: {
         id: budgetId,
-        userId: session.user.id
+        userId: user.id
       },
       data: {
         name,
@@ -141,9 +138,7 @@ export async function PUT(
       },
       include: {
         expenses: {
-          select: {
-            amount: true
-          }
+          select: { amount: true }
         }
       }
     })
@@ -154,11 +149,11 @@ export async function PUT(
       0
     )
 
-    const numericAmount = budget.amount.toNumber() // Convert Decimal → number
+    const numericAmount = Number(budget.amount)
     const percentage = numericAmount > 0 ? (spent / numericAmount) * 100 : 0
 
     // ✅ Clear reports cache after budget update
-    await ReportsService.clearUserReportsCache(session.user.id)
+    await ReportsService.clearUserReportsCache(user.id)
     console.log('🗑️ Cache invalidated after budget update')
 
     return NextResponse.json({
@@ -187,22 +182,21 @@ export async function PUT(
 // DELETE budget
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session?.user?.id) {
+    const user = await currentUser()
+    if (!user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id: budgetId } = await params
+    const budgetId = params.id
 
     // Verify budget belongs to user
     const existingBudget = await prisma.budget.findFirst({
       where: {
         id: budgetId,
-        userId: session.user.id
+        userId: user.id
       },
       include: {
         expenses: {
@@ -230,12 +224,12 @@ export async function DELETE(
     await prisma.budget.delete({
       where: {
         id: budgetId,
-        userId: session.user.id
+        userId: user.id
       }
     })
 
     // ✅ Clear reports cache after budget deletion
-    await ReportsService.clearUserReportsCache(session.user.id)
+    await ReportsService.clearUserReportsCache(user.id)
     console.log('🗑️ Cache invalidated after budget deletion')
 
     return NextResponse.json({ message: 'Budget deleted successfully' })

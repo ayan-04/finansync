@@ -1,17 +1,23 @@
 /* ───── src/components/landing/navbar.tsx ───── */
 "use client"
 
-import Link                    from "next/link"
-import { useSession, signOut } from "next-auth/react"
-import { useRouter }           from "next/navigation"
-import { Button }              from "@/components/ui/button"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { useUser, useClerk } from "@clerk/nextjs"
 
 export default function Navbar() {
-  const { data: session } = useSession()
-  const router            = useRouter()
+  const { user, isLoaded } = useUser()
+  const { signOut } = useClerk()
+  const router = useRouter()
 
   // log-out → land on /
-  const handleSignOut = () => signOut({ callbackUrl: "/" })
+  const handleSignOut = () => { signOut(); router.push("/") }
+
+  // Get first name, else fall back to email, else blank
+  const greeting = user?.firstName
+    || user?.emailAddresses?.[0]?.emailAddress
+    || ""
 
   return (
     <nav className="fixed inset-x-0 top-0 z-50 bg-white/95 backdrop-blur-md border-b">
@@ -29,10 +35,10 @@ export default function Navbar() {
 
         {/* right-side actions */}
         <div className="flex items-center space-x-3">
-          {session ? (
+          {!isLoaded ? null : user ? (
             <>
               <span className="text-sm text-gray-700 hidden sm:inline">
-                Hi,&nbsp;{session.user?.name?.split(" ")[0] ?? session.user?.email}
+                Hi,&nbsp;{greeting}
               </span>
 
               <Button

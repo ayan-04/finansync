@@ -1,28 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth/auth'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
-import { ReportsService } from '@/lib/services/reports' // ✅ Add this import
+import { ReportsService } from '@/lib/services/reports'
+import { currentUser } from '@clerk/nextjs/server'
 
 // GET single expense
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session?.user?.id) {
+    const user = await currentUser()
+    if (!user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id: expenseId } = await params
+    const expenseId = params.id
 
     const expense = await prisma.expense.findFirst({
       where: {
         id: expenseId,
-        userId: session.user.id
+        userId: user.id
       },
       include: {
         budget: {
@@ -50,16 +48,15 @@ export async function GET(
 // UPDATE expense
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session?.user?.id) {
+    const user = await currentUser()
+    if (!user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id: expenseId } = await params
+    const expenseId = params.id
     const { name, amount, budgetId, description } = await request.json()
 
     if (!name || !amount || !budgetId) {
@@ -73,7 +70,7 @@ export async function PUT(
     const existingExpense = await prisma.expense.findFirst({
       where: {
         id: expenseId,
-        userId: session.user.id
+        userId: user.id
       }
     })
 
@@ -85,7 +82,7 @@ export async function PUT(
     const budget = await prisma.budget.findFirst({
       where: {
         id: budgetId,
-        userId: session.user.id
+        userId: user.id
       }
     })
 
@@ -96,7 +93,7 @@ export async function PUT(
     const updatedExpense = await prisma.expense.update({
       where: {
         id: expenseId,
-        userId: session.user.id
+        userId: user.id
       },
       data: {
         name,
@@ -117,17 +114,17 @@ export async function PUT(
     })
 
     // ✅ Clear reports cache after expense update
-    await ReportsService.clearUserReportsCache(session.user.id)
+    await ReportsService.clearUserReportsCache(user.id)
     console.log('🗑️ Cache invalidated after expense update')
 
     return NextResponse.json(updatedExpense)
   } catch (error) {
     console.error('Error updating expense:', error)
-    
+
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
       return NextResponse.json({ error: 'Expense not found' }, { status: 404 })
     }
-    
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -135,22 +132,21 @@ export async function PUT(
 // DELETE expense
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session?.user?.id) {
+    const user = await currentUser()
+    if (!user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id: expenseId } = await params
+    const expenseId = params.id
 
     // Verify expense belongs to user
     const existingExpense = await prisma.expense.findFirst({
       where: {
         id: expenseId,
-        userId: session.user.id
+        userId: user.id
       }
     })
 
@@ -161,22 +157,22 @@ export async function DELETE(
     await prisma.expense.delete({
       where: {
         id: expenseId,
-        userId: session.user.id
+        userId: user.id
       }
     })
 
     // ✅ Clear reports cache after expense deletion
-    await ReportsService.clearUserReportsCache(session.user.id)
+    await ReportsService.clearUserReportsCache(user.id)
     console.log('🗑️ Cache invalidated after expense deletion')
 
     return NextResponse.json({ message: 'Expense deleted successfully' })
   } catch (error) {
     console.error('Error deleting expense:', error)
-    
+
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
       return NextResponse.json({ error: 'Expense not found' }, { status: 404 })
     }
-    
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

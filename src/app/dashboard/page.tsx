@@ -1,6 +1,6 @@
 "use client"
 
-import { useSession } from 'next-auth/react'
+import { SignedIn, SignedOut, RedirectToSignIn, useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, useCallback } from 'react'
 import { BudgetOverview } from '@/components/dashboard/budget-overview'
@@ -11,49 +11,44 @@ import { AIInsights } from '@/components/dashboard/ai-insights'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ReportsDashboard } from '@/components/dashboard/reports-dashboard'
 
-
 export default function DashboardPage() {
-  const { data: session, status } = useSession()
+  const { user, isLoaded } = useUser()
   const router = useRouter()
   const [refreshKey, setRefreshKey] = useState(0)
   const [budgets, setBudgets] = useState([])
-  const [activeTab, setActiveTab] = useState('overview') // ✅ Track active tab
-  
+  const [activeTab, setActiveTab] = useState('overview')
+
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (isLoaded && !user) {
       router.push('/auth/signin')
-    } else if (status === 'authenticated') {
+    } else if (isLoaded && user) {
       fetchBudgets()
     }
-  }, [status, router])
+    // eslint-disable-next-line
+  }, [isLoaded, user, router])
 
-  // ✅ Refresh data when switching to overview tab
   useEffect(() => {
-    if (activeTab === 'overview' && session) {
-      console.log('🔄 Refreshing overview tab data')
+    if (activeTab === 'overview' && user) {
       handleGlobalDataChange()
     }
-  }, [activeTab, session])
+    // eslint-disable-next-line
+  }, [activeTab, user])
 
-  // ✅ Auto-refresh data every 30 seconds when on overview
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null
-    
-    if (activeTab === 'overview' && session) {
+    if (activeTab === 'overview' && user) {
       interval = setInterval(() => {
-        console.log('🔄 Auto-refreshing dashboard data')
         fetchBudgets()
-      }, 30000) // Refresh every 30 seconds
+      }, 30000)
     }
-
     return () => {
       if (interval) clearInterval(interval)
     }
-  }, [activeTab, session])
+    // eslint-disable-next-line
+  }, [activeTab, user])
 
   const fetchBudgets = useCallback(async () => {
     try {
-      console.log('📊 Fetching latest budget data')
       const response = await fetch('/api/budgets')
       if (response.ok) {
         const data = await response.json()
@@ -67,7 +62,6 @@ export default function DashboardPage() {
           icon: budget.icon || '💰'
         }))
         setBudgets(processedBudgets)
-        console.log('✅ Budget data updated:', processedBudgets.length, 'budgets')
       }
     } catch (error) {
       console.error('❌ Error fetching budgets:', error)
@@ -75,18 +69,16 @@ export default function DashboardPage() {
   }, [])
 
   const handleGlobalDataChange = useCallback(() => {
-    console.log('🔄 Global data change - refreshing all components')
     setRefreshKey(prev => prev + 1)
     fetchBudgets()
   }, [fetchBudgets])
 
-  // ✅ Handle tab changes
   const handleTabChange = (value: string) => {
-    console.log('📑 Switching to tab:', value)
     setActiveTab(value)
   }
 
-  if (status === 'loading') {
+  // Loader for delayed Clerk user
+  if (!isLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -97,84 +89,91 @@ export default function DashboardPage() {
     )
   }
 
-  if (!session) return null
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">FinanSync Dashboard</h1>
-              <p className="text-gray-600">Welcome back, {session.user?.name || session.user?.email}!</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <p className="text-sm text-gray-500">Last updated</p>
-                <p className="text-sm font-medium">Just now</p>
-              </div>
-              {/* ✅ Manual refresh button */}
-              <button 
-                onClick={handleGlobalDataChange}
-                className="px-3 py-1 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition-colors"
-              >
-                Refresh
-              </button>
-              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-medium">
-                  {(session.user?.name?.[0] || session.user?.email?.[0] || 'U').toUpperCase()}
-                </span>
+    <>
+      <SignedIn>
+        <div className="min-h-screen bg-gray-50">
+          {/* Header */}
+          <div className="bg-white border-b">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">FinanSync Dashboard</h1>
+                  <p className="text-gray-600">
+                    Welcome back, {user?.firstName || user?.emailAddresses?.[0]?.emailAddress || 'user'}!
+                  </p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <p className="text-sm text-gray-500">Last updated</p>
+                    <p className="text-sm font-medium">Just now</p>
+                  </div>
+                  {/* Manual refresh button */}
+                  <button 
+                    onClick={handleGlobalDataChange}
+                    className="px-3 py-1 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition-colors"
+                  >
+                    Refresh
+                  </button>
+                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                    <span className="text-white text-sm font-medium">
+                      {(user?.firstName?.[0] || user?.emailAddresses?.[0]?.emailAddress?.[0] || 'U').toUpperCase()}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Main Content with Tabs */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
-            <TabsTrigger value="ai">AI Assistant</TabsTrigger>
-            <TabsTrigger value="expenses">Expenses</TabsTrigger>
-            <TabsTrigger value="reports">Reports</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="overview" className="space-y-8">
-            <BudgetOverview 
-              onCreateBudget={handleGlobalDataChange}
-              onAddExpense={handleGlobalDataChange}
-              onDataChange={handleGlobalDataChange}
-              key={`budget-overview-${refreshKey}`} // ✅ Force re-render on refresh
-            />
-            <BudgetCharts 
-              budgets={budgets}
-              key={`budget-charts-${refreshKey}`} // ✅ Force re-render on refresh
-            />
-          </TabsContent>
-          
-          <TabsContent value="analytics">
-            <AnalyticsDashboard refreshKey={refreshKey} />
-          </TabsContent>
-          
-          <TabsContent value="ai">
-            <AIInsights refreshKey={refreshKey} />
-          </TabsContent>
-          
-          <TabsContent value="expenses">
-            <ExpenseList
-              onExpenseUpdated={handleGlobalDataChange} // ✅ Notify when expense changes
-              key={`expense-list-${refreshKey}`}
-            />
-          </TabsContent>
-          
-         <TabsContent value="reports">
-  <ReportsDashboard refreshKey={refreshKey} />
-</TabsContent>
-        </Tabs>
-      </div>
-    </div>
+          {/* Main Content with Tabs */}
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+              <TabsList className="grid w-full grid-cols-5">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="analytics">Analytics</TabsTrigger>
+                <TabsTrigger value="ai">AI Assistant</TabsTrigger>
+                <TabsTrigger value="expenses">Expenses</TabsTrigger>
+                <TabsTrigger value="reports">Reports</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="overview" className="space-y-8">
+                <BudgetOverview 
+                  onCreateBudget={handleGlobalDataChange}
+                  onAddExpense={handleGlobalDataChange}
+                  onDataChange={handleGlobalDataChange}
+                  key={`budget-overview-${refreshKey}`}
+                />
+                <BudgetCharts 
+                  budgets={budgets}
+                  key={`budget-charts-${refreshKey}`}
+                />
+              </TabsContent>
+              
+              <TabsContent value="analytics">
+                <AnalyticsDashboard refreshKey={refreshKey} />
+              </TabsContent>
+              
+              <TabsContent value="ai">
+                <AIInsights refreshKey={refreshKey} />
+              </TabsContent>
+              
+              <TabsContent value="expenses">
+                <ExpenseList
+                  onExpenseUpdated={handleGlobalDataChange}
+                  key={`expense-list-${refreshKey}`}
+                />
+              </TabsContent>
+              
+              <TabsContent value="reports">
+                <ReportsDashboard refreshKey={refreshKey} />
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
+      </SignedIn>
+      <SignedOut>
+        <RedirectToSignIn />
+      </SignedOut>
+    </>
   )
 }

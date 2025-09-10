@@ -1,30 +1,36 @@
 /* ── src/components/dashboard/Navbar.tsx ── */
 "use client"
 
-import { useState }                   from "react"
-import Link                           from "next/link"
-import { useRouter }                  from "next/navigation"
-import { useSession, signOut }        from "next-auth/react"
-import { RefreshCcw, Menu, X }        from "lucide-react"
-import { Button }                     from "@/components/ui/button"
+import { useState } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { RefreshCcw, Menu, X } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { useUser, useClerk, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs"
 
 const tabs = [
-  { href: "/dashboard",             label: "Overview" },
-  { href: "/dashboard/analytics",   label: "Analytics" },
-  { href: "/dashboard/ai",          label: "AI Assistant" },
-  { href: "/dashboard/expenses",    label: "Expenses" },
-  { href: "/dashboard/reports",     label: "Reports" }
+  { href: "/dashboard", label: "Overview" },
+  { href: "/dashboard/analytics", label: "Analytics" },
+  { href: "/dashboard/ai", label: "AI Assistant" },
+  { href: "/dashboard/expenses", label: "Expenses" },
+  { href: "/dashboard/reports", label: "Reports" }
 ]
 
 export default function Navbar() {
-  const { data: session, status } = useSession()
-  const router                    = useRouter()
+  const router = useRouter()
+  const { user, isLoaded } = useUser()
+  const { signOut } = useClerk()
 
-  const [mobileOpen,   setMobileOpen]   = useState(false)
-  const [profileOpen,  setProfileOpen]  = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
 
-  const goto      = (url:string) => { setMobileOpen(false); router.push(url) }
-  const handleOut = ()            => signOut({ callbackUrl: "/" })
+  const goto = (url: string) => { setMobileOpen(false); router.push(url) }
+  const handleOut = () => { signOut(); router.push("/") }
+
+  // Get user's display name initial
+  const userInitial = user?.firstName?.[0]?.toUpperCase()
+    || user?.emailAddresses?.[0]?.emailAddress?.[0]?.toUpperCase()
+    || "U"
 
   /* ─ UI ─────────────────────────────────────────────── */
   return (
@@ -52,7 +58,6 @@ export default function Navbar() {
 
         {/* Right-hand cluster */}
         <div className="flex items-center space-x-4">
-
           {/* Last-updated & refresh */}
           <div className="hidden md:flex flex-col items-end leading-none">
             <span className="text-[11px] text-gray-400">Last updated</span>
@@ -63,53 +68,61 @@ export default function Navbar() {
           </Button>
 
           {/* Avatar / auth */}
-          {status === "loading" ? (
+          {!isLoaded ? (
             <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse" />
-          ) : (
+          ) : user ? (
             <div className="relative">
               <button
                 onClick={() => setProfileOpen(!profileOpen)}
                 className="w-9 h-9 rounded-full bg-blue-600 text-white grid place-content-center font-semibold"
                 aria-label="Account menu"
               >
-                {session ? session.user?.name?.[0].toUpperCase() : "U"}
+                {userInitial}
               </button>
-
               {/* dropdown */}
               {profileOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-white border rounded-md shadow-lg py-1 z-50">
-                  {session && (
-                    <>
-                      <button
-                        onClick={() => goto("/dashboard/profile")}
-                        className="block w-full text-left px-4 py-2 hover:bg-gray-100"
-                      >
-                        Profile
-                      </button>
-                      <button
-                        onClick={handleOut}
-                        className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100"
-                      >
-                        Sign out
-                      </button>
-                    </>
-                  )}
-                  {!session && (
-                    <>
-                      <button
-                        onClick={() => goto("/auth/signin")}
-                        className="block w-full text-left px-4 py-2 hover:bg-gray-100"
-                      >
-                        Sign in
-                      </button>
-                      <button
-                        onClick={() => goto("/auth/signup")}
-                        className="block w-full text-left px-4 py-2 hover:bg-gray-100"
-                      >
-                        Get started
-                      </button>
-                    </>
-                  )}
+                  <button
+                    onClick={() => goto("/dashboard/profile")}
+                    className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                  >
+                    Profile
+                  </button>
+                  <button
+                    onClick={handleOut}
+                    className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100"
+                  >
+                    Sign out
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="relative">
+              <button
+                onClick={() => setProfileOpen(!profileOpen)}
+                className="w-9 h-9 rounded-full bg-gray-300 text-gray-700 grid place-content-center font-semibold"
+                aria-label="Account menu"
+              >
+                U
+              </button>
+              {/* dropdown */}
+              {profileOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white border rounded-md shadow-lg py-1 z-50">
+                  <SignInButton>
+                    <button
+                      className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                    >
+                      Sign in
+                    </button>
+                  </SignInButton>
+                  <SignUpButton>
+                    <button
+                      className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                    >
+                      Get started
+                    </button>
+                  </SignUpButton>
                 </div>
               )}
             </div>
@@ -121,7 +134,7 @@ export default function Navbar() {
             className="lg:hidden p-2 rounded-md hover:bg-gray-100"
             aria-label="Toggle nav"
           >
-            {mobileOpen ? <X className="h-5 w-5"/> : <Menu className="h-5 w-5" />}
+            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
       </nav>
@@ -140,7 +153,7 @@ export default function Navbar() {
             </Link>
           ))}
           <div className="border-t p-4">
-            {session ? (
+            {user ? (
               <>
                 <Button className="w-full mb-2" onClick={() => goto("/dashboard/profile")}>
                   Profile
@@ -151,12 +164,16 @@ export default function Navbar() {
               </>
             ) : (
               <>
-                <Button className="w-full mb-2" onClick={() => goto("/auth/signin")}>
-                  Sign in
-                </Button>
-                <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white" onClick={() => goto("/auth/signup")}>
-                  Get started
-                </Button>
+                <SignInButton>
+                  <Button className="w-full mb-2">
+                    Sign in
+                  </Button>
+                </SignInButton>
+                <SignUpButton>
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                    Get started
+                  </Button>
+                </SignUpButton>
               </>
             )}
           </div>

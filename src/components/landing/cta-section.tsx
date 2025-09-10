@@ -5,11 +5,13 @@ import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { CheckCircle, ArrowRight } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
+import { useUser } from "@clerk/nextjs"
 
 export function CTASection() {
-  const { data: session } = useSession()
-  const router             = useRouter()
+  const { user, isLoaded } = useUser()
+  const router = useRouter()
+
+  const authenticated = !!user
 
   return (
     <section className="py-24 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700 text-white relative overflow-hidden">
@@ -55,7 +57,7 @@ export function CTASection() {
                 <CheckCircle className="w-5 h-5 text-green-400"/>
                 <span className="text-blue-100">{text}</span>
               </motion.div>
-          ))}
+            ))}
         </div>
 
         {/* single CTA button */}
@@ -67,10 +69,9 @@ export function CTASection() {
           <Button
             size="lg"
             className="bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-semibold px-10 py-4 text-lg shadow-lg"
-            onClick={() => session ? router.push("/dashboard")
-                                    : router.push("/auth/signin")}
+            onClick={() => authenticated ? router.push("/dashboard") : router.push("/auth/signin")}
           >
-            {session ? "Open My Dashboard" : "Start Managing Money"}
+            {authenticated ? "Open My Dashboard" : "Start Managing Money"}
             <ArrowRight className="ml-3 w-5 h-5"/>
           </Button>
         </motion.div>

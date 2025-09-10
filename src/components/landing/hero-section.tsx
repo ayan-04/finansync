@@ -5,11 +5,13 @@ import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { ArrowRight } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
+import { useUser } from "@clerk/nextjs"
 
 export function HeroSection() {
-  const { data: session } = useSession()
+  const { user, isLoaded } = useUser()
   const router = useRouter()
+
+  const authenticated = !!user
 
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white">
@@ -47,9 +49,9 @@ export function HeroSection() {
           <Button
             size="lg"
             className="bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-semibold px-8 py-4"
-            onClick={() => (session ? router.push("/dashboard") : router.push("/auth/signin"))}
+            onClick={() => (authenticated ? router.push("/dashboard") : router.push("/auth/signin"))}
           >
-            {session ? "Open Dashboard" : "Start Free Trial"}
+            {authenticated ? "Open Dashboard" : "Start Free Trial"}
             <ArrowRight className="ml-2 w-5 h-5" />
           </Button>
         </motion.div>
