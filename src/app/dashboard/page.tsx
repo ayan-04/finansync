@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState, useCallback } from 'react'
 import { BudgetOverview } from '@/components/dashboard/budget-overview'
 import { ExpenseList } from '@/components/dashboard/expense-list'
-import { BudgetCharts } from '@/components/dashboard/budget-charts'
+import { BudgetCharts, BudgetData } from '@/components/dashboard/budget-charts'
 import { AnalyticsDashboard } from '@/components/dashboard/analytics-dashboard'
 import { AIInsights } from '@/components/dashboard/ai-insights'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -15,7 +15,7 @@ export default function DashboardPage() {
   const { user, isLoaded } = useUser()
   const router = useRouter()
   const [refreshKey, setRefreshKey] = useState(0)
-  const [budgets, setBudgets] = useState([])
+  const [budgets, setBudgets] = useState<BudgetData[]>([])
   const [activeTab, setActiveTab] = useState('overview')
 
   useEffect(() => {
@@ -51,17 +51,20 @@ export default function DashboardPage() {
     try {
       const response = await fetch('/api/budgets')
       if (response.ok) {
-        const data = await response.json()
-        const processedBudgets = data.map((budget: any) => ({
-          ...budget,
-          amount: Number(budget.amount),
-          spent: Number(budget.spent || 0),
-          percentage: budget.amount > 0 ? (Number(budget.spent || 0) / Number(budget.amount)) * 100 : 0,
-          remaining: Number(budget.amount) - Number(budget.spent || 0),
-          color: budget.color || '#3b82f6',
-          icon: budget.icon || '💰'
-        }))
-        setBudgets(processedBudgets)
+        const data: unknown = await response.json()
+        if (Array.isArray(data)) {
+          const processedBudgets: BudgetData[] = data.map((budget: Record<string, unknown>) => ({
+            id: String(budget.id),
+            name: String(budget.name ?? ""),
+            amount: Number(budget.amount ?? 0),
+            spent: Number(budget.spent ?? 0),
+            percentage: Number(budget.amount) > 0 ? (Number(budget.spent ?? 0) / Number(budget.amount)) * 100 : 0,
+            remaining: Number(budget.amount ?? 0) - Number(budget.spent ?? 0),
+            color: (budget.color as string) || '#3b82f6',
+            icon: (budget.icon as string) || '💰',
+          }))
+          setBudgets(processedBudgets)
+        }
       }
     } catch (error) {
       console.error('❌ Error fetching budgets:', error)
@@ -69,7 +72,7 @@ export default function DashboardPage() {
   }, [])
 
   const handleGlobalDataChange = useCallback(() => {
-    setRefreshKey(prev => prev + 1)
+    setRefreshKey((prev) => prev + 1)
     fetchBudgets()
   }, [fetchBudgets])
 
@@ -77,7 +80,6 @@ export default function DashboardPage() {
     setActiveTab(value)
   }
 
-  // Loader for delayed Clerk user
   if (!isLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -108,8 +110,7 @@ export default function DashboardPage() {
                     <p className="text-sm text-gray-500">Last updated</p>
                     <p className="text-sm font-medium">Just now</p>
                   </div>
-                  {/* Manual refresh button */}
-                  <button 
+                  <button
                     onClick={handleGlobalDataChange}
                     className="px-3 py-1 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition-colors"
                   >
@@ -135,35 +136,35 @@ export default function DashboardPage() {
                 <TabsTrigger value="expenses">Expenses</TabsTrigger>
                 <TabsTrigger value="reports">Reports</TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="overview" className="space-y-8">
-                <BudgetOverview 
+                <BudgetOverview
                   onCreateBudget={handleGlobalDataChange}
                   onAddExpense={handleGlobalDataChange}
                   onDataChange={handleGlobalDataChange}
                   key={`budget-overview-${refreshKey}`}
                 />
-                <BudgetCharts 
+                <BudgetCharts
                   budgets={budgets}
                   key={`budget-charts-${refreshKey}`}
                 />
               </TabsContent>
-              
+
               <TabsContent value="analytics">
                 <AnalyticsDashboard refreshKey={refreshKey} />
               </TabsContent>
-              
+
               <TabsContent value="ai">
                 <AIInsights refreshKey={refreshKey} />
               </TabsContent>
-              
+
               <TabsContent value="expenses">
                 <ExpenseList
                   onExpenseUpdated={handleGlobalDataChange}
                   key={`expense-list-${refreshKey}`}
                 />
               </TabsContent>
-              
+
               <TabsContent value="reports">
                 <ReportsDashboard refreshKey={refreshKey} />
               </TabsContent>

@@ -18,12 +18,20 @@ if (!redis.isOpen) {
   redis.connect()
 }
 
+// Export all cache key helpers required by your app
+export const CACHE_KEYS = {
+  dashboard: (userId: string) => `dashboard:${userId}`,
+  reports: (userId: string) => `reports:${userId}`,
+  budgets: (userId: string) => `budgets:${userId}`,
+  expenses: (userId: string) => `expenses:${userId}`,
+}
+
 export { redis }
 
 // Helper functions for common caching patterns
 export const CacheHelpers = {
   // Cache with expiration
-  async setWithExpiry(key: string, value: any, expirySeconds: number = 3600) {
+  async setWithExpiry(key: string, value: unknown, expirySeconds: number = 3600) {
     return await redis.setEx(key, expirySeconds, JSON.stringify(value))
   },
 

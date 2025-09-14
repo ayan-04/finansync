@@ -3,8 +3,6 @@
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { 
   BarChart, 
   Bar, 
@@ -19,17 +17,17 @@ import {
   AreaChart,
   Area
 } from 'recharts'
-import { TrendingUp, BarChart3, PieChart as PieChartIcon, Filter } from 'lucide-react'
+import { TrendingUp, BarChart3, PieChart as PieChartIcon } from 'lucide-react'
 
-interface BudgetData {
+export interface BudgetData {
   id: string
   name: string
   amount: number
   spent: number
   percentage: number
   remaining: number
-  color?: string  // Made optional
-  icon?: string   // Made optional
+  color?: string
+  icon?: string
 }
 
 interface ExpenseData {
@@ -50,56 +48,37 @@ interface BudgetChartsProps {
 
 export function BudgetCharts({ budgets }: BudgetChartsProps) {
   const [chartType, setChartType] = useState<'bar' | 'pie' | 'line'>('bar')
-  const [startDate, setStartDate] = useState<string>('')
-  const [endDate, setEndDate] = useState<string>('')
-  const [expenses, setExpenses] = useState<ExpenseData[]>([])
-  const [loading, setLoading] = useState(false)
   const [filteredData, setFilteredData] = useState<any[]>([])
-
-  // Set default date range (last 6 months)
-  useEffect(() => {
-    const now = new Date()
-    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1)
-    
-    setStartDate(sixMonthsAgo.toISOString().split('T')[0])
-    setEndDate(now.toISOString().split('T')[0])
-  }, [])
+  const [loading] = useState(false)
 
   // Process data when budgets or chart type changes
   useEffect(() => {
     processChartData(budgets)
+    // eslint-disable-next-line
   }, [budgets, chartType])
 
   const processChartData = (budgetData: BudgetData[]) => {
     switch (chartType) {
       case 'bar':
-        // Budget vs Spending comparison
-        const budgetComparison = budgetData.map(budget => ({
+        setFilteredData(budgetData.map(budget => ({
           name: budget.name,
           budgeted: budget.amount,
           spent: budget.spent,
           remaining: Math.max(0, budget.amount - budget.spent),
-          fill: budget.color || '#3b82f6'  // Provide default color
-        }))
-        setFilteredData(budgetComparison)
+          fill: budget.color || '#3b82f6'
+        })))
         break
-
       case 'pie':
-        // Spending by category
-        const categorySpending = budgetData
+        setFilteredData(budgetData
           .filter(budget => budget.spent > 0)
           .map(budget => ({
             name: budget.name,
             value: budget.spent,
-            fill: budget.color || '#3b82f6'  // Provide default color
-          }))
-        setFilteredData(categorySpending)
+            fill: budget.color || '#3b82f6'
+          })))
         break
-
       case 'line':
-        // Generate sample monthly trend based on current spending
-        const monthlyData = generateSampleTrend(budgetData)
-        setFilteredData(monthlyData)
+        setFilteredData(generateSampleTrend(budgetData))
         break
     }
   }
@@ -107,32 +86,30 @@ export function BudgetCharts({ budgets }: BudgetChartsProps) {
   const generateSampleTrend = (budgetData: BudgetData[]) => {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep']
     const totalSpent = budgetData.reduce((sum, budget) => sum + budget.spent, 0)
-    
     return months.map((month, index) => ({
       month,
       amount: totalSpent * (0.7 + Math.random() * 0.6) // Simulate variation
     }))
   }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-white p-3 border rounded-lg shadow-lg">
-        <p className="font-semibold">{label}</p>
-        {payload.map((entry: any, index: number) => {
-          // ✅ Fix: Convert to number and add safety check
-          const value = Number(entry.value) || 0
-          return (
-            <p key={index} style={{ color: entry.color }}>
-              {entry.name}: ${value.toFixed(2)}
-            </p>
-          )
-        })}
-      </div>
-    )
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-3 border rounded-lg shadow-lg">
+          <p className="font-semibold">{label}</p>
+          {payload.map((entry: any, index: number) => {
+            const value = Number(entry.value) || 0
+            return (
+              <p key={index} style={{ color: entry.color }}>
+                {entry.name}: ${value.toFixed(2)}
+              </p>
+            )
+          })}
+        </div>
+      )
+    }
+    return null
   }
-  return null
-}
 
   const renderChart = () => {
     if (loading) {
@@ -143,7 +120,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         </div>
       )
     }
-
     if (filteredData.length === 0) {
       return (
         <div className="flex items-center justify-center h-[300px] text-gray-500">
@@ -151,7 +127,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         </div>
       )
     }
-
     switch (chartType) {
       case 'bar':
         return (
@@ -166,7 +141,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
             </BarChart>
           </ResponsiveContainer>
         )
-      
       case 'pie':
         return (
           <ResponsiveContainer width="100%" height={300}>
@@ -176,7 +150,11 @@ const CustomTooltip = ({ active, payload, label }: any) => {
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ name, value }) => `${name}: $${(value !== undefined ? value.toFixed(2) : '0.00')}`}
+             label={({ name, value }) => {
+  const numValue = Number(value)
+  return `${name}: $${!isNaN(numValue) ? numValue.toFixed(2) : '0.00'}`
+}}
+
                 outerRadius={80}
                 fill="#8884d8"
                 dataKey="value"
@@ -189,7 +167,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
             </PieChart>
           </ResponsiveContainer>
         )
-      
       case 'line':
         return (
           <ResponsiveContainer width="100%" height={300}>
@@ -198,18 +175,17 @@ const CustomTooltip = ({ active, payload, label }: any) => {
               <XAxis dataKey="month" />
               <YAxis />
               <Tooltip content={<CustomTooltip />} />
-              <Area 
-                type="monotone" 
-                dataKey="amount" 
-                stroke="#3b82f6" 
-                fill="#3b82f6" 
-                fillOpacity={0.3} 
+              <Area
+                type="monotone"
+                dataKey="amount"
+                stroke="#3b82f6"
+                fill="#3b82f6"
+                fillOpacity={0.3}
                 name="Spending"
               />
             </AreaChart>
           </ResponsiveContainer>
         )
-      
       default:
         return null
     }
@@ -228,8 +204,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
               Visual breakdown of your budget usage
             </p>
           </div>
-          
-          {/* Chart Type Switcher */}
           <div className="flex gap-1">
             <Button
               variant={chartType === 'bar' ? 'default' : 'outline'}
@@ -255,7 +229,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
           </div>
         </div>
       </CardHeader>
-
       <CardContent>
         {renderChart()}
       </CardContent>

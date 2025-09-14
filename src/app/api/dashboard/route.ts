@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { redis, CACHE_KEYS } from '@/lib/redis'
 import { withAuth, handleApiError } from '@/lib/api-helpers'
 
-export const GET = withAuth(async (userId: string, request: NextRequest) => {
+export const GET = withAuth(async (userId: string) => {
   try {
     // Check cache first
     const cacheKey = CACHE_KEYS.dashboard(userId)
@@ -91,8 +91,8 @@ export const GET = withAuth(async (userId: string, request: NextRequest) => {
       }
     }
     
-    // Cache for 15 minutes
-    await redis.setex(cacheKey, 900, JSON.stringify(dashboardData))
+    // Cache for 15 minutes (use setEx)
+    await redis.setEx(cacheKey, 900, JSON.stringify(dashboardData))
     
     return NextResponse.json(dashboardData)
   } catch (error) {

@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { ReportsService } from '@/lib/services/reports'
 import { currentUser } from '@clerk/nextjs/server'
 
 // GET all budgets for user
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const user = await currentUser()
     if (!user?.id) {
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
 }
 
 // CREATE new budget
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const user = await currentUser()
     if (!user?.id) {
